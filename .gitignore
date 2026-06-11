@@ -1,0 +1,20 @@
+# --- macOS ---
+.DS_Store
+
+# --- R ---
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# --- Reference genome data (public, multi-GB — never commit to git) ---
+GRCh38/
+*.fasta
+*.fa
+*.vcf
+*.cif
+*.rsif
+
+# --- Large binary / cache artefacts (uncomment if needed) ---
+# *.rds
+# *.RData
