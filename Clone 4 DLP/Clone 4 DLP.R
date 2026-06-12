@@ -85,21 +85,33 @@ sim <- TissueSimulation(
   height = 5000
 )
 
+# Volumetric (exponential) growth: every cell can divide, not only the tumour
+# border. Required for consistency with the Stan model, which assumes
+# exponential clone growth (terminal_clone_mass = exp(w * delta_t * (1 - t)))
+# and clonal-mutation accumulation proportional to w * delta_t. The default
+# border-growth model grows ~polynomially and biases the inference.
+sim$border_growth_model <- FALSE
+
+# With volumetric (exponential) growth the founder keeps dividing for the whole
+# run, so intermediates are grown to a small size and only the sampled leaf clone
+# is grown large (mirrors Clone 6 DLP). This keeps the tissue and the DLP
+# sampling box within ProCESS's 2^16-cell limit and the leaf clone abundant
+# enough to sample.
 sim$add_mutant(name = "A", growth_rates = w[1], death_rates = 0)
 sim$place_cell("A", 2500, 2500)
-sim$run_up_to_size(species = "A", 50)
+sim$run_up_to_size(species = "A", 5)
 
 sim$add_mutant(name = "B", growth_rates = w[2], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("A"), "B")
-sim$run_up_to_size(species = "B", 40)
+sim$run_up_to_size(species = "B", 5)
 
 sim$add_mutant(name = "C", growth_rates = w[2] + 0.0001, death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("B"), "C")
-sim$run_up_to_size(species = "C", 40)
+sim$run_up_to_size(species = "C", 5)
 
 sim$add_mutant(name = "D", growth_rates = w[5] + 0.01, death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("C"), "D")
-sim$run_up_to_size(species = "D", 12)
+sim$run_up_to_size(species = "D", 100)
 
 Tf <- sim$get_clock()
 
@@ -188,8 +200,10 @@ ggsave(
 # 4. Sampling
 # ------------------------------------------------------------
 
-n_w <- 50
-n_h <- 30
+# DLP samples are capped at 2^16 cells, and search_sample returns a box of
+# exactly n_w x n_h positions, so n_w * n_h must stay below 65536.
+n_w <- 250
+n_h <- 250
 
 ncells_by_clone <- cells_plot %>%
   count(mutant, name = "n") %>%
@@ -198,7 +212,7 @@ ncells_by_clone <- cells_plot %>%
   arrange(match(mutant, clones$mutant))
 
 sample_targets <- stats::setNames(
-  ncells_by_clone$n / 5,
+  ncells_by_clone$n / 10,
   ncells_by_clone$mutant
 )
 
@@ -685,18 +699,25 @@ for (i in seq_len(nrow(events))) {
   idx_first_mutation[[i]] <- length(mutations) + 1L
   
   if (events$event_type[[i]] == "mrca") {
-    L_11 <- total_normal_length %>%
-      filter(.data$cell_label == label) %>%
-      pull(total_11_length)
-    
-    if (length(L_11) != 1 || is.na(L_11)) {
+    m_coeff <- 2.0
+    # l_tot,i = regions that were 1:1 during THIS clone's own branch = the
+    # clone's own normal regions. Descendant/sibling CNAs are later events and
+    # must NOT shrink it; intersecting over the subtree (required_labels) lets
+    # brother clones erode the ancestor's normal length and under-counts m.
+    branch_normal_regions <- get_diploid_regions(
+      common_normal_regions = common_normal_regions,
+      region_labels = label
+    )
+    L_11 <- sum(branch_normal_regions$end - branch_normal_regions$begin + 1L)
+
+    if (length(L_11) != 1 || is.na(L_11) || L_11 <= 0) {
       stop("Invalid 1:1 length for ", label)
     }
-    
+
     event_lengths[[i]] <- L_11
     event_karyotypes[[i]] <- 0L
     m_count <- 0L
-    
+
     if (node != 1L) {
       m_table <- count_m(
         mutation_presence = mutation_presence,
@@ -708,15 +729,17 @@ for (i in seq_len(nrow(events))) {
       )
       m_count <- nrow(m_table)
     }
-    
+
     mutations <- c(mutations, as.integer(m_count))
-    coeff <- c(coeff, 2.0)
+    coeff <- c(coeff, m_coeff)
     mutation_labels <- c(mutation_labels, paste0("m_", label))
   } else {
+    alpha_coeff <- 1.0
+    beta_coeff <- 3.0
     region <- cna_regions %>% filter(.data$cna_name == events$cna_name[[i]])
     event_lengths[[i]] <- region$length[[1]]
     event_karyotypes[[i]] <- 1L
-    
+
     alpha_beta <- count_alpha_beta(
       mut_clean = mut_clean,
       cna_regions = cna_regions,
@@ -729,14 +752,14 @@ for (i in seq_len(nrow(events))) {
       redistribute_non_amp = TRUE,
       mutation_presence = mutation_presence
     )
-    
+
     alpha_beta_table <- bind_rows(alpha_beta_table, alpha_beta)
     mutations <- c(
       mutations,
       as.integer(round(alpha_beta$N_alpha_total[[1]])),
       as.integer(round(alpha_beta$N_beta_total[[1]]))
     )
-    coeff <- c(coeff, 1.0, 3.0)
+    coeff <- c(coeff, alpha_coeff, beta_coeff)
     mutation_labels <- c(
       mutation_labels,
       paste0("alpha_", events$cna_name[[i]]),
