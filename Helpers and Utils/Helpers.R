@@ -456,6 +456,49 @@ count_m <- function(
   tibble::as_tibble(clone_clonal)
 }
 
+#' Identify which allele ids belong to the amplified homolog of a CNA region.
+#'
+#' A mutation that predates the amplification is copied onto both sister copies
+#' of the duplicated homolog, so it appears on more than one allele id. The
+#' amplified homolog's ids are therefore exactly those that co-occur on such
+#' multi-allele loci; the remaining id(s) present in the region form the single
+#' non-amplified copy.
+#'
+#' ProCESS numbers the duplicated copy with a new (highest) id and may amplify
+#' either original homolog, so the amplified pair is NOT always {0, 2} — e.g. it
+#' can be {1, 2} with {0} left as the non-amplified copy. Hard-coding {0, 2} as
+#' "amplified" and {1} as "non-amplified" therefore mislabels beta vs non_amp
+#' for any region where the other homolog was amplified.
+#'
+#' When the region carries no multi-allele loci (e.g. every pre-amplification
+#' mutation was pre-neoplastic and filtered out) the split cannot be inferred,
+#' and we fall back to the historical {0, 2} / {1} convention.
+infer_amplified_alleles <- function(
+    region_alleles,
+    mutation_key_cols = default_mutation_key_cols(),
+    default_amplified = c("0", "2"),
+    default_non_amplified = "1"
+) {
+  ra <- data.table::as.data.table(region_alleles)
+
+  if (nrow(ra) == 0) {
+    return(list(amplified = default_amplified, non_amplified = default_non_amplified))
+  }
+
+  ra[, allele := as.character(allele)]
+  per_locus <- ra[, .(alleles = list(sort(unique(allele)))), by = mutation_key_cols]
+  per_locus[, allele_n := lengths(alleles)]
+
+  amplified <- sort(unique(unlist(per_locus[allele_n > 1, alleles])))
+  all_alleles <- sort(unique(ra[["allele"]]))
+
+  if (length(amplified) == 0) {
+    return(list(amplified = default_amplified, non_amplified = default_non_amplified))
+  }
+
+  list(amplified = amplified, non_amplified = setdiff(all_alleles, amplified))
+}
+
 count_alpha_beta <- function(
     mut_clean,
     cna_regions,
@@ -534,9 +577,19 @@ count_alpha_beta <- function(
       mut_dt[, chr := as.character(chr)]
     }
 
-    allele_dt <- mut_dt[mut_dt[["cell_label"]] %in% required_labels]
-    allele_dt <- unique(allele_dt[, c(mutation_key_cols, "allele"), with = FALSE])
-    allele_dt <- allele_dt[clonal[, mutation_key_cols, with = FALSE], on = mutation_key_cols, nomatch = 0]
+    # All required-cell alleles inside the CNA region (not just clonal loci):
+    # used to infer which allele ids are the amplified homolog for THIS region.
+    region_alleles <- mut_dt[
+      mut_dt[["cell_label"]] %in% required_labels &
+        mut_dt[["chr"]] == as.character(region$chr[[1]]) &
+        mut_dt[["from"]] >= region$begin[[1]] &
+        mut_dt[["from"]] <= region$end[[1]]
+    ]
+    region_alleles <- unique(region_alleles[, c(mutation_key_cols, "allele"), with = FALSE])
+
+    amp <- infer_amplified_alleles(region_alleles, mutation_key_cols)
+
+    allele_dt <- region_alleles[clonal[, mutation_key_cols, with = FALSE], on = mutation_key_cols, nomatch = 0]
 
     allele_summary <- allele_dt[, {
       alleles <- sort(unique(as.character(allele)))
@@ -544,14 +597,15 @@ count_alpha_beta <- function(
     }, by = mutation_key_cols]
 
     classified <- merge(clonal, allele_summary, by = mutation_key_cols)
-    classified[, class := data.table::fifelse(
-      allele_n > 1,
-      "alpha",
-      data.table::fifelse(
-        allele_str %in% c("0", "2"),
-        "beta",
-        data.table::fifelse(allele_str == "1", "non_amp", "other")
-      )
+    # alpha: present on >1 allele (predates the CNA, carried onto both copies of
+    #        the duplicated homolog) — convention-independent.
+    # beta:  single allele that is one of the amplified homolog's ids.
+    # non_amp: single allele that is the non-amplified copy's id.
+    classified[, class := data.table::fcase(
+      allele_n > 1, "alpha",
+      allele_str %in% amp$amplified, "beta",
+      allele_str %in% amp$non_amplified, "non_amp",
+      default = "other"
     )]
   }
 
