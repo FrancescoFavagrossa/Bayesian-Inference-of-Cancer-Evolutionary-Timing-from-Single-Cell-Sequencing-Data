@@ -10,11 +10,11 @@ library(ggplot2)
 library(posterior)
 library(stringr)
 
-genome_dir <- '/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/GRCh38'
-wd <- '/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Clone 6 proportional'
+genome_dir <- '/Users/francescofavagrossa/Documents/Projects/Thesis/GRCh38'
+wd <- '/Users/francescofavagrossa/Documents/Projects/Thesis/Clone 6 proportional'
 setwd(wd)
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/Helpers.R')
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/utils.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/Helpers.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/utils.R')
 
 show_plot <- function(plot) {
   if (interactive()) print(plot)
@@ -767,7 +767,7 @@ stan_data <- list(
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/stan_models/n growth fixed negative binomial.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed negative binomial.stan"
 )
 
 model <- cmdstan_model(stan_file)
@@ -880,7 +880,7 @@ ggsave(
 # 13. Save bias results (posterior vs true: event times + growth rates)
 # ------------------------------------------------------------
 
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/bias_table.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/bias_table.R')
 save_bias(fit, true_events, true_growth, "Clone 6 prop")
 res <- combine_bias()
 print(res$wide, width = Inf)

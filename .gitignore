@@ -18,3 +18,7 @@ GRCh38/
 # --- Large binary / cache artefacts (uncomment if needed) ---
 # *.rds
 # *.RData
+
+# stray interactive R plots
+Rplots.pdf
+**/Rplots.pdf
