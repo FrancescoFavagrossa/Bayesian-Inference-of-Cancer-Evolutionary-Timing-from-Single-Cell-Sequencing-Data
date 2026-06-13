@@ -804,7 +804,19 @@ make_posterior_ci_plot <- function(
       true_value = first(true_value),
       .groups = "drop"
     )
-  
+
+  # Auto x-range from the 95% CIs and true values (not the raw posterior support):
+  # heavy-tailed posteriors (e.g. fast-growing clones) otherwise stretch the shared
+  # axis so every facet collapses to a spike near zero. Extreme draws beyond this
+  # window are dropped from the histogram so the bins resolve the bulk.
+  if (is.null(x_limits)) {
+    x_hi <- max(c(posterior_ci$q975, posterior_ci$true_value), na.rm = TRUE) * 1.12
+    x_lo <- min(c(posterior_ci$q025, posterior_ci$true_value, 0), na.rm = TRUE)
+    x_limits <- c(x_lo, x_hi)
+  }
+  posterior_df <- posterior_df %>%
+    filter(value >= x_limits[1], value <= x_limits[2])
+
   p <- ggplot(posterior_df, aes(x = value)) +
     geom_rect(
       data = posterior_ci,
