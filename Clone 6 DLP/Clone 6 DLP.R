@@ -10,11 +10,11 @@ library(ggplot2)
 library(posterior)
 library(stringr)
 
-genome_dir <- '/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/GRCh38'
-wd <- '/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Clone 6 DLP'
+genome_dir <- '/Users/francescofavagrossa/Documents/Projects/Thesis/GRCh38'
+wd <- '/Users/francescofavagrossa/Documents/Projects/Thesis/Clone 6 DLP'
 setwd(wd)
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/Helpers.R')
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/utils.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/Helpers.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/utils.R')
 
 show_plot <- function(plot) {
   if (interactive()) print(plot)
@@ -92,25 +92,25 @@ sim$run_up_to_size(species = "A", 5)
 
 sim$add_mutant(name = "B", growth_rates = w[2], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("A"), "B")
-sim$run_up_to_size(species = "B", 4)
+sim$run_up_to_size(species = "B", 2)
 
 sim$add_mutant(name = "C", growth_rates = w[2], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("B"), "C")
-sim$run_up_to_size(species = "C", 4)
+sim$run_up_to_size(species = "C", 2)
 
 sim$add_mutant(name = "D", growth_rates = w[3], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("B"), "D")
-sim$run_up_to_size(species = "D", 10)
+sim$run_up_to_size(species = "D", 2)
 
 sim$add_mutant(name = "E", growth_rates = w[3], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("C"), "E")
-sim$run_up_to_size(species = "E", 10)
+sim$run_up_to_size(species = "E", 2)
 
 sim$add_mutant(name = "F", growth_rates = w[5], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("D"), "F")
-sim$run_up_to_size(species = "F", 500)
+sim$run_up_to_size(species = "F", 100)
 
-
+sim
 Tf <- sim$get_clock()
 
 # ------------------------------------------------------------
@@ -165,8 +165,8 @@ ggsave(
 # ------------------------------------------------------------
 # 4. Sampling
 # ------------------------------------------------------------
-n_w <- 1000
-n_h <- 1000
+n_w <- 200
+n_h <- 200
 
 ncells_by_clone <- cells_plot %>%
   count(mutant, name = "n") %>%
@@ -175,7 +175,7 @@ ncells_by_clone <- cells_plot %>%
   arrange(match(mutant, clones$mutant))
 
 sample_targets <- stats::setNames(
-  ncells_by_clone$n / 5,
+  ncells_by_clone$n / 10,
   ncells_by_clone$mutant
 )
 
@@ -216,7 +216,7 @@ ggsave(
   bg = "white"
 )
 
-DLP.sample(sim, bbox1$lower_corner, bbox1$upper_corner, sample_prefix="DLP Clone 4")
+DLP.sample(sim, bbox1$lower_corner, bbox1$upper_corner, sample_prefix="DLP Clone 6")
 
 forest <- sim$get_sample_forest()
 
@@ -811,7 +811,7 @@ stan_data <- list(
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/stan_models/n growth fixed negative binomial.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed negative binomial.stan"
 )
 
 model <- cmdstan_model(stan_file)
@@ -924,7 +924,7 @@ ggsave(
 # 13. Save bias results (posterior vs true: event times + growth rates)
 # ------------------------------------------------------------
 
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/bias_table.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/bias_table.R')
 save_bias(fit, true_events, true_growth, "Clone 6 DLP")
 res <- combine_bias()
 print(res$wide, width = Inf)
