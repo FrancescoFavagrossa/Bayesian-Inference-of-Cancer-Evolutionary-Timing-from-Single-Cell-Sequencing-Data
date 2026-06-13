@@ -816,7 +816,7 @@ stan_data <- list(
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed negative binomial.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed nb clock.stan"
 )
 
 model <- cmdstan_model(stan_file)
