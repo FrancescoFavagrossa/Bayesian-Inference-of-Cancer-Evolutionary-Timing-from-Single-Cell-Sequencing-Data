@@ -56,6 +56,10 @@ sigma_log_w <- abs(rnorm(
   mean = 0,
   sd = 1 / sigma_log_w_rate
 ))
+# Use the same tissue as Clone 6 DLP: distinct per-clone growth, and the small
+# run_up_to_size targets below (intermediates 2, leaf 100) keep the tissue small
+# (~10k) so the proportional sampling does not overgrow the grid.
+sigma_log_w <- 0.4
 
 w <- numeric(n_clones)
 log_w <- numeric(n_clones)
@@ -86,30 +90,34 @@ sim <- TissueSimulation(
   width  = 5000,
   height = 5000
 )
+# Volumetric (exponential) growth — required: the Stan model assumes it, and
+# without it (border growth) the interior leaf clone F grows too slowly to reach
+# its run_up_to_size target, so the tissue expands without bound (filled the grid).
+sim$border_growth_model <- FALSE
 
 sim$add_mutant(name = "A", growth_rates = w[1], death_rates = 0)
 sim$place_cell("A", 2500, 2500)
-sim$run_up_to_size(species = "A", 50)
+sim$run_up_to_size(species = "A", 5)
 
 sim$add_mutant(name = "B", growth_rates = w[2], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("A"), "B")
-sim$run_up_to_size(species = "B", 40)
+sim$run_up_to_size(species = "B", 2)
 
-sim$add_mutant(name = "C", growth_rates = w[2], death_rates = 0)
+sim$add_mutant(name = "C", growth_rates = w[3], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("B"), "C")
-sim$run_up_to_size(species = "C", 40)
+sim$run_up_to_size(species = "C", 2)
 
-sim$add_mutant(name = "D", growth_rates = w[3], death_rates = 0)
+sim$add_mutant(name = "D", growth_rates = w[4], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("B"), "D")
-sim$run_up_to_size(species = "D", 20)
+sim$run_up_to_size(species = "D", 2)
 
-sim$add_mutant(name = "E", growth_rates = w[3], death_rates = 0)
+sim$add_mutant(name = "E", growth_rates = w[5], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("C"), "E")
-sim$run_up_to_size(species = "E", 10)
+sim$run_up_to_size(species = "E", 2)
 
-sim$add_mutant(name = "F", growth_rates = w[4], death_rates = 0)
+sim$add_mutant(name = "F", growth_rates = w[6], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("D"), "F")
-sim$run_up_to_size(species = "F", 20)
+sim$run_up_to_size(species = "F", 100)
 
 
 Tf <- sim$get_clock()
@@ -763,11 +771,12 @@ stan_data <- list(
   Ncells_per_clone = as.integer(n_cells_per_clone$n_cells_total),
   w_bar_prior_mean = w_bar_prior_mean,
   w_bar_prior_sd = w_bar_prior_sd,
-  sigma_log_w_rate = sigma_log_w_rate
+  sigma_log_w_rate = sigma_log_w_rate,
+  sigma_nu_rate = 2
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed negative binomial.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed nb clock coupled.stan"
 )
 
 model <- cmdstan_model(stan_file)
@@ -775,8 +784,10 @@ fit <- model$sample(
   data = stan_data,
   chains = 4,
   parallel_chains = 4,
-  iter_warmup = 1000,
-  iter_sampling = 5000,
+  iter_warmup = 4000,
+  iter_sampling = 6000,
+  adapt_delta = 0.99,
+  max_treedepth = 14,
   seed = 42
 )
 
@@ -835,10 +846,10 @@ true_growth <- tibble(
   true_value = c(
     w[1],
     w[2],
-    w[2],
     w[3],
-    w[3],
-    w[4]
+    w[4],
+    w[5],
+    w[6]
   )
 )
 
