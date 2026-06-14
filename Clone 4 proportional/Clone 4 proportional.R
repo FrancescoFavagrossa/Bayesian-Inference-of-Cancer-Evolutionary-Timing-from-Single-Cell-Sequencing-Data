@@ -723,7 +723,7 @@ saveRDS(
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed nb clock coupled.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed nb clock simple.stan"
 )
 
 model <- cmdstan_model(stan_file)
