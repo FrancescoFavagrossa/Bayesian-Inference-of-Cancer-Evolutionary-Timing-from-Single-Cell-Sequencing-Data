@@ -35,7 +35,7 @@ mu_INDELs <- 0
 
 w_bar_prior_mean <- 0.06
 w_bar_prior_sd <- 0.35
-sigma_log_w_rate <- 2
+sigma_log_w_rate <- 1
 clone_abundance_nb_phi <- 100
 
 clone_names <- c("A", "B", "C", "D", "E")
@@ -819,11 +819,12 @@ stan_data <- list(
   w_bar_prior_mean = w_bar_prior_mean,
   w_bar_prior_sd = w_bar_prior_sd,
   sigma_log_w_rate = sigma_log_w_rate,
-  sigma_nu_rate = 2
+  omega_prior_mean = 1.25,
+  omega_prior_sd = 0.5
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed nb clock simple.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/base_rw.stan"
 )
 
 model <- cmdstan_model(stan_file)
