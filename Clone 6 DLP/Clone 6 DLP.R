@@ -812,12 +812,11 @@ stan_data <- list(
   w_bar_prior_mean = w_bar_prior_mean,
   w_bar_prior_sd = w_bar_prior_sd,
   sigma_log_w_rate = sigma_log_w_rate,
-  omega_prior_mean = 1.25,
-  omega_prior_sd = 0.5
+  sigma_nu_rate = 2
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/base_rw.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/n growth fixed nb clock simple.stan"
 )
 
 model <- cmdstan_model(stan_file)
