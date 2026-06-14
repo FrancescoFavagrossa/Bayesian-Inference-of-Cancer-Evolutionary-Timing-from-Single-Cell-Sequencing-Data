@@ -85,7 +85,7 @@ data.frame(
 # ------------------------------------------------------------
 
 sim <- TissueSimulation(
-  name          = "4C Prop",
+  name          = "4C DLP",
   save_snapshots = FALSE,
   width  = 5000,
   height = 5000
