@@ -10,11 +10,11 @@ library(ggplot2)
 library(posterior)
 library(stringr)
 
-genome_dir <- '/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/GRCh38'
-wd <- '/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Clone 4 proportional'
+genome_dir <- '/Users/francescofavagrossa/Documents/Projects/Thesis/GRCh38'
+wd <- '/Users/francescofavagrossa/Documents/Projects/Thesis/Clone 4 proportional'
 setwd(wd)
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/Helpers.R')
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/utils.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/Helpers.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/utils.R')
 
 show_plot <- function(plot) {
   if (interactive()) print(plot)
@@ -34,7 +34,7 @@ mu_INDELs <- 0
 
 w_bar_prior_mean <- 0.06
 w_bar_prior_sd <- 0.35
-sigma_log_w_rate <- 2
+sigma_log_w_rate <- 1
 clone_abundance_nb_phi <- 100
 
 clone_names <- c("A", "B", "C", "D", "E")
@@ -53,6 +53,10 @@ sigma_log_w <- abs(rnorm(
   mean = 0,
   sd = 1 / sigma_log_w_rate
 ))
+# Random part of the per-clone growth spread (a deterministic floor is added to
+# each increment below to guarantee the clones are genuinely distinct, which the
+# clock-growth coupling needs to break the w-t degeneracy in the inference).
+sigma_log_w <- 0.25
 
 w <- numeric(n_clones)
 log_w <- numeric(n_clones)
@@ -61,7 +65,7 @@ w[1] <- w_bar
 log_w[1] <- log(w[1])
 
 for (i in 2:n_clones) {
-  increment <- abs(rnorm(1, mean = 0, sd = sigma_log_w))
+  increment <- 0.3 + abs(rnorm(1, mean = 0, sd = sigma_log_w))
   log_w[i] <- log_w[parent[i]] + increment
   w[i] <- exp(log_w[i])
 }
@@ -95,11 +99,11 @@ sim$add_mutant(name = "B", growth_rates = w[2], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("A"), "B")
 sim$run_up_to_size(species = "B", 5)
 
-sim$add_mutant(name = "C", growth_rates = w[2] + 0.0001, death_rates = 0)
+sim$add_mutant(name = "C", growth_rates = w[3], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("B"), "C")
 sim$run_up_to_size(species = "C", 10)
 
-sim$add_mutant(name = "D", growth_rates = w[5] + 0.01, death_rates = 0)
+sim$add_mutant(name = "D", growth_rates = w[4], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("C"), "D")
 sim$run_up_to_size(species = "D", 1000)
 
@@ -509,8 +513,8 @@ true_growth <- tibble(
   true_value = c(
     w[1],
     w[2],
-    w[2] + 0.0001,
-    w[5] + 0.01
+    w[3],
+    w[4]
   )
 )
 
@@ -698,7 +702,9 @@ stan_data <- list(
   Ncells_per_clone = as.integer(n_cells_per_clone$n_cells_total),
   w_bar_prior_mean = w_bar_prior_mean,
   w_bar_prior_sd = w_bar_prior_sd,
-  sigma_log_w_rate = sigma_log_w_rate
+  sigma_log_w_rate = sigma_log_w_rate,
+  omega_prior_mean = 1.25,
+  omega_prior_sd = 0.5
 )
 
 dir.create("results", showWarnings = FALSE, recursive = TRUE)
@@ -718,7 +724,7 @@ saveRDS(
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/stan_models/n growth fixed negative binomial.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/base_rw.stan"
 )
 
 model <- cmdstan_model(stan_file)
@@ -726,11 +732,11 @@ fit <- model$sample(
   data = stan_data,
   chains = 4,
   parallel_chains = 4,
-  iter_warmup = 1000,
+  iter_warmup = 3000,
   iter_sampling = 5000,
   seed = 42,
   adapt_delta = 0.99,
-  max_treedepth = 12
+  max_treedepth = 14
 )
 
 print(fit$summary(c("tevents", "w", "w_node_out", "delta_log_w_out", "sigma_log_w")))
@@ -814,7 +820,7 @@ ggsave(
 # 13. Save bias results (posterior vs true: event times + growth rates)
 # ------------------------------------------------------------
 
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/bias_table.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/bias_table.R')
 save_bias(fit, true_events, true_growth, "Clone 4 prop")
 res <- combine_bias()
 print(res$wide, width = Inf)

@@ -10,11 +10,11 @@ library(ggplot2)
 library(posterior)
 library(stringr)
 
-genome_dir <- '/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/GRCh38'
-wd <- '/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Clone 6 DLP'
+genome_dir <- '/Users/francescofavagrossa/Documents/Projects/Thesis/GRCh38'
+wd <- '/Users/francescofavagrossa/Documents/Projects/Thesis/Clone 6 DLP'
 setwd(wd)
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/Helpers.R')
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/utils.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/Helpers.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/utils.R')
 
 show_plot <- function(plot) {
   if (interactive()) print(plot)
@@ -36,7 +36,7 @@ passenger_SNV_rate <- mu_SNV
 
 w_bar_prior_mean <- 0.06
 w_bar_prior_sd <- 0.35
-sigma_log_w_rate <- 2
+sigma_log_w_rate <- 1
 clone_abundance_nb_phi <- 100
 
 clone_names <- c("A", "B", "C", "D", "E", "F")
@@ -55,6 +55,10 @@ sigma_log_w <- abs(rnorm(
   mean = 0,
   sd = 1 / sigma_log_w_rate
 ))
+# Enforce a clear per-clone growth spread: the prior draw was ~0.1, giving nearly
+# identical clone growth that the abundance cannot resolve. A larger spread makes
+# the clones genuinely distinct (and tests whether the inference recovers them).
+sigma_log_w <- 0.4
 
 w <- numeric(n_clones)
 log_w <- numeric(n_clones)
@@ -92,25 +96,25 @@ sim$run_up_to_size(species = "A", 5)
 
 sim$add_mutant(name = "B", growth_rates = w[2], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("A"), "B")
-sim$run_up_to_size(species = "B", 4)
+sim$run_up_to_size(species = "B", 2)
 
-sim$add_mutant(name = "C", growth_rates = w[2], death_rates = 0)
+sim$add_mutant(name = "C", growth_rates = w[3], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("B"), "C")
-sim$run_up_to_size(species = "C", 4)
+sim$run_up_to_size(species = "C", 2)
 
-sim$add_mutant(name = "D", growth_rates = w[3], death_rates = 0)
+sim$add_mutant(name = "D", growth_rates = w[4], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("B"), "D")
-sim$run_up_to_size(species = "D", 10)
+sim$run_up_to_size(species = "D", 2)
 
-sim$add_mutant(name = "E", growth_rates = w[3], death_rates = 0)
+sim$add_mutant(name = "E", growth_rates = w[5], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("C"), "E")
-sim$run_up_to_size(species = "E", 10)
+sim$run_up_to_size(species = "E", 2)
 
-sim$add_mutant(name = "F", growth_rates = w[5], death_rates = 0)
+sim$add_mutant(name = "F", growth_rates = w[6], death_rates = 0)
 sim$mutate_progeny(sim$choose_cell_in("D"), "F")
-sim$run_up_to_size(species = "F", 500)
+sim$run_up_to_size(species = "F", 100)
 
-
+sim
 Tf <- sim$get_clock()
 
 # ------------------------------------------------------------
@@ -165,8 +169,8 @@ ggsave(
 # ------------------------------------------------------------
 # 4. Sampling
 # ------------------------------------------------------------
-n_w <- 1000
-n_h <- 1000
+n_w <- 200
+n_h <- 200
 
 ncells_by_clone <- cells_plot %>%
   count(mutant, name = "n") %>%
@@ -175,7 +179,7 @@ ncells_by_clone <- cells_plot %>%
   arrange(match(mutant, clones$mutant))
 
 sample_targets <- stats::setNames(
-  ncells_by_clone$n / 5,
+  ncells_by_clone$n / 10,
   ncells_by_clone$mutant
 )
 
@@ -216,7 +220,7 @@ ggsave(
   bg = "white"
 )
 
-DLP.sample(sim, bbox1$lower_corner, bbox1$upper_corner, sample_prefix="DLP Clone 4")
+DLP.sample(sim, bbox1$lower_corner, bbox1$upper_corner, sample_prefix="DLP Clone 6")
 
 forest <- sim$get_sample_forest()
 
@@ -807,11 +811,13 @@ stan_data <- list(
   Ncells_per_clone = as.integer(n_cells_per_clone$n_cells_total),
   w_bar_prior_mean = w_bar_prior_mean,
   w_bar_prior_sd = w_bar_prior_sd,
-  sigma_log_w_rate = sigma_log_w_rate
+  sigma_log_w_rate = sigma_log_w_rate,
+  omega_prior_mean = 1.25,
+  omega_prior_sd = 0.5
 )
 
 stan_file <- file.path(
-  "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/stan_models/n growth fixed negative binomial.stan"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/base_rw.stan"
 )
 
 model <- cmdstan_model(stan_file)
@@ -819,8 +825,10 @@ fit <- model$sample(
   data = stan_data,
   chains = 4,
   parallel_chains = 4,
-  iter_warmup = 1000,
-  iter_sampling = 5000,
+  iter_warmup = 4000,
+  iter_sampling = 6000,
+  adapt_delta = 0.99,
+  max_treedepth = 14,
   seed = 42
 )
 
@@ -879,10 +887,10 @@ true_growth <- tibble(
   true_value = c(
     w[1],
     w[2],
-    w[2],
     w[3],
-    w[3],
-    w[4]
+    w[4],
+    w[5],
+    w[6]
   )
 )
 
@@ -924,7 +932,7 @@ ggsave(
 # 13. Save bias results (posterior vs true: event times + growth rates)
 # ------------------------------------------------------------
 
-source('/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Helpers and Utils/bias_table.R')
+source('/Users/francescofavagrossa/Documents/Projects/Thesis/Helpers and Utils/bias_table.R')
 save_bias(fit, true_events, true_growth, "Clone 6 DLP")
 res <- combine_bias()
 print(res$wide, width = Inf)

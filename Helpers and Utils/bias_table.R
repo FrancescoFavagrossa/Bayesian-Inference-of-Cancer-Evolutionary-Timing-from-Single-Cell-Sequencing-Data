@@ -18,10 +18,10 @@
 
 # Each scenario keeps its results in a "results/" subfolder INSIDE its own folder.
 SCENARIO_RESULTS_DIRS <- c(
-  "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Clone 4 proportional/results",
-  "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Clone 4 DLP/results",
-  "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Clone 6 proportional/results",
-  "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/Clone 6 DLP/results"
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/Clone 4 proportional/results",
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/Clone 4 DLP/results",
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/Clone 6 proportional/results",
+  "/Users/francescofavagrossa/Documents/Projects/Thesis/Clone 6 DLP/results"
 )
 
 # Per-parameter posterior summary + bias for one fit / one scenario.
@@ -100,7 +100,7 @@ bias_summary_wide <- function(detailed) {
 # Load every saved *_bias.rds from all scenario folders, assemble the tables,
 # PRINT summary + wide to the console, and write all three as CSV to `out_dir`.
 combine_bias <- function(dirs = SCENARIO_RESULTS_DIRS,
-                         out_dir = "/Users/francescofavagrossa/Desktop/RW SINGLE CELL/Thesis/results",
+                         out_dir = "/Users/francescofavagrossa/Documents/Projects/Thesis/results",
                          write_csv = TRUE) {
   files <- unlist(lapply(dirs, function(d)
     list.files(d, pattern = "_bias\\.rds$", full.names = TRUE)))

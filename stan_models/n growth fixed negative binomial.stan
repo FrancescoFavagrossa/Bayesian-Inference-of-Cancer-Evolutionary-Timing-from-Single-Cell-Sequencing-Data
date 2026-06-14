@@ -89,7 +89,12 @@ parameters {
 
   real<lower=1e-9, upper=1> w_bar;
   real<lower=0, upper=2> sigma_log_w;
-  vector<lower=0>[Nnodes - 1] delta_log_w;
+  // Symmetric (unconstrained) random walk on log growth. Forcing the increments
+  // >= 0 (monotone-increasing fitness) introduces a boundary/folding bias when a
+  // true increment is ~0: the increment cannot be returned near zero, so it is
+  // pushed positive and the error compounds down the lineage, badly over-
+  // estimating deep clones. Allowing negative increments removes that bias.
+  vector[Nnodes - 1] delta_log_w;
 
   real<lower=0> omega;
 }
