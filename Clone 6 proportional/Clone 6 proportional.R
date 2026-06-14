@@ -161,6 +161,7 @@ p <- ggplot(cells_plot, aes(x = position_x, y = position_y, fill = mutant)) +
     fill = "Clone"
   )
 
+dir.create("figures", showWarnings = FALSE, recursive = TRUE)
 ggsave(
   filename = "figures/Tissue_Plot.png",
   plot = p, width = 16, height = 9,
@@ -832,7 +833,7 @@ p_tevents <- make_posterior_ci_plot(
 show_plot(p_tevents)
 
 ggsave(
-  filename = "figures/Posterior events time.png",
+  filename = "figures/Posterior_Event_Times.png",
   plot = p_tevents,
   width = 16,
   height = 9,
@@ -879,7 +880,7 @@ p_growth <- make_posterior_ci_plot(
 show_plot(p_growth)
 
 ggsave(
-  filename = "figures/Posterior growth rates.png",
+  filename = "figures/Posterior_Growth_Rates.png",
   plot = p_growth,
   width = 16,
   height = 9,

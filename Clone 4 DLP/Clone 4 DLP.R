@@ -194,8 +194,9 @@ p <- ggplot(cells_plot, aes(x = position_x, y = position_y, fill = mutant)) +
         fill = "Clone"
       )
 
+dir.create("figures", showWarnings = FALSE, recursive = TRUE)
 ggsave(
-  filename = "figures 4 DLP/Tissue_Plot.png",
+  filename = "figures/Tissue_Plot.png",
   plot = p, width = 16, height = 9,
   units = "in",
   dpi = 300,
@@ -252,7 +253,7 @@ p_cells <- ggplot(cells_plot, aes(x = position_x, y = position_y, fill = mutant)
 print(p_cells)
 
 ggsave(
-  filename = "figures 4 DLP/Tissue_Sampled_Plot.png",
+  filename = "figures/Tissue_Sampled_Plot.png",
   plot = p_cells, width = 16, height = 9,
   units = "in",
   dpi = 300,
@@ -316,7 +317,7 @@ p <- p +
 show_plot(p)
 
 ggsave(
-  filename = "figures 4 DLP/Forest_Plot.png",
+  filename = "figures/Forest_Plot.png",
   plot = p, width = 16, height = 9,
   units = "in",
   dpi = 300,
@@ -400,7 +401,7 @@ p <- (
 show_plot(p)
 
 ggsave(
-  filename = "figures 4 DLP/Forest_Mutations_Plot.png",
+  filename = "figures/Forest_Mutations_Plot.png",
   plot = p,
   width = 16,
   height = 9,
@@ -879,7 +880,7 @@ p_tevents <- make_posterior_ci_plot(
 show_plot(p_tevents)
 
 ggsave(
-  filename = "figures 4 DLP/Posterior events time.png",
+  filename = "figures/Posterior_Event_Times.png",
   plot = p_tevents,
   width = 16,
   height = 9,
@@ -924,7 +925,7 @@ p_growth <- make_posterior_ci_plot(
 show_plot(p_growth)
 
 ggsave(
-  filename = "figures 4 DLP/Posterior growth rates.png",
+  filename = "figures/Posterior_Growth_Rates.png",
   plot = p_growth,
   width = 16,
   height = 9,
