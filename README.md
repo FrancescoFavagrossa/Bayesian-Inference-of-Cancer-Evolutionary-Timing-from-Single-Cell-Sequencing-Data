@@ -23,7 +23,7 @@ robustness sweeps), then to synthetic data from the spatial simulator **ProCESS*
 | `stan_models/` | Stan model sources. `base_rw.stan` (complete model: joint times + growth), `base_rw_nosub.stan` (ablation: NegBin abundance without the children-subtraction). |
 | `robustness_checks/` | Well-specified simulation study: data-generating process, recovery, SBC, hyperparameter sweeps, mutation posterior-predictive checks, and the no-subtraction ablation. See `robustness_checks/README.md`. |
 | `Clone 4 DLP/`, `Clone 6 DLP/` | The two ProCESS scenarios used in the thesis (four-clone linear chain, six-clone branching tree), each sampled by a localized biopsy (DLP+). Each holds its simulation/inference script (`*.R`), figures and `results/`. |
-| `omega_w_verification/` | Auxiliary check on the growth-to-clock coupling. |
+| `Helpers and Utils/` | Shared helper functions sourced by the Clone scenario scripts (tree setup, bias tables, plotting). |
 | `results/` | Aggregated recovery/bias tables (`bias_summary.csv`, `bias_detailed.csv`, `bias_wide.csv`). |
 
 The LaTeX thesis and large reference data (e.g. `GRCh38/`) are kept outside this

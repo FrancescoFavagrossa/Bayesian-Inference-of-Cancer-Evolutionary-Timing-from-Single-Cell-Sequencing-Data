@@ -22,6 +22,9 @@ GRCh38/
 # --- LaTeX thesis (kept local, not part of the code repo) ---
 Thesis_final/
 
+# --- Superseded draft code, kept local only ---
+chapter3.1_code/
+
 # --- Archives ---
 *.zip
 
