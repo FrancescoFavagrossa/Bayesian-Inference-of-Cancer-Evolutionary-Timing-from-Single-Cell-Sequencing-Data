@@ -207,10 +207,12 @@ ggsave(
 # 4. Sampling
 # ------------------------------------------------------------
 
-# DLP samples are capped at 2^16 cells, and search_sample returns a box of
-# exactly n_w x n_h positions, so n_w * n_h must stay below 65536.
-n_w <- 250
-n_h <- 250
+# DLP samples are capped at 2^16 cells (n_w * n_h < 65536). Size the biopsy box as
+# a fraction of the tumour's own extent, so it is a genuine focal sub-region rather
+# than a box larger than the whole tumour.
+tumor_side <- min(diff(range(cells_plot$position_x)), diff(range(cells_plot$position_y)))
+n_w <- max(8L, as.integer(round(0.45 * tumor_side)))
+n_h <- n_w
 
 ncells_by_clone <- cells_plot %>%
   count(mutant, name = "n") %>%
@@ -823,6 +825,9 @@ stan_data <- list(
   omega_prior_mean = 1.25,
   omega_prior_sd = 0.5
 )
+
+dir.create("results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(stan_data, "results/Clone_4_DLP_stan_data.rds")
 
 stan_file <- file.path(
   "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/base_rw.stan"

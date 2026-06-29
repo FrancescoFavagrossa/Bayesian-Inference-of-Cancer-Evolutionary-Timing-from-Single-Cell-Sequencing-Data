@@ -1,9 +1,9 @@
 // ============================================================================
-// BASE MODEL — random walk on growth, NO per-clone residual.
+// BASE MODEL -- random walk on growth, NO per-clone residual.
 //   growth:     log w_i = log w_parent + sigma_log_w * z_i      (RW on the tree)
 //   clock:      nu_i = omega * w_i                              (rigid, no residual)
 //   mutations:  m ~ Poisson(nu_i * mu * dt * l * coeff * dt_interval)   (alpha uses
-//               the clone's own w_node, NOT w_parent — alpha/beta both on the stem)
+//               the clone's own w_node, NOT w_parent -- alpha/beta both on the stem)
 //   abundance:  N_i ~ NegBinomial(N * p_i, phi),  p_i from exp(w_i*dt*(1-t_i))
 //   event times: nested-uniform stick-breaking (uniform prior).
 //
@@ -46,7 +46,7 @@ data {
   real<lower=0> w_bar_prior_mean;
   real<lower=0> w_bar_prior_sd;
   real<lower=0> sigma_log_w_rate;
-  real<lower=0> omega_prior_mean;   // Yule genealogical factor (~2)
+  real<lower=0> omega_prior_mean;   // prior mean of the clock-to-growth factor
   real<lower=0> omega_prior_sd;     // tightness; small -> nearly fixed
 }
 
@@ -177,5 +177,29 @@ generated quantities {
   delta_log_w_out[1] = 0;
   for (node in 2:Nnodes) {
     delta_log_w_out[node] = log_w_node[node] - log_w_node[parents[node]];
+  }
+
+  // posterior predictive replicated mutation counts (PPC on mutation numbers)
+  array[Nequations] int mutations_rep;
+  for (node in 1:Nnodes) {
+    int idx0 = idx_first_event[node];
+    int p = parents[node];
+    real t_p = (p == 0) ? 0.0 : tevents[idx_first_event[p]];
+    for (event in 1:number_of_events[node]) {
+      int idx = idx0 + event - 1;
+      if (event == 1) {
+        int idx_m = idx_first_mutation[idx0];
+        mutations_rep[idx_m] = poisson_rng(positive_rate(
+          nu_node[node] * mu * delta_t * lengths[idx0] * coeff[idx_m] * (tevents[idx0] - t_p)));
+      } else {
+        int idx_a = idx_first_mutation[idx];
+        int idx_b = idx_first_mutation[idx] + 1;
+        real t_cna = tevents[idx];
+        mutations_rep[idx_a] = poisson_rng(positive_rate(
+          nu_node[node] * mu * delta_t * lengths[idx] * coeff[idx_a] * (t_cna - t_p)));
+        mutations_rep[idx_b] = poisson_rng(positive_rate(
+          nu_node[node] * mu * delta_t * lengths[idx] * coeff[idx_b] * (tevents[idx0] - t_cna)));
+      }
+    }
   }
 }
