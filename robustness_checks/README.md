@@ -30,14 +30,9 @@ Figures are written into the thesis image folder `Thesis_final/immagini/`.
 | `05_threepanel_sweeps.R` | 4 hyperparameter sweeps under the DGP (ω sd, σ-rate, n. cells, φ dispersion), per-event bias/coverage/CI-width in pseudotime | `results/sweep3.rds` |
 | `05b_threepanel_plots.R` | 3-panel figures (`\|bias\|`, coverage, CI width) from `05`, one per sweep | `Thesis_final/immagini/robust_sweep_*.png` |
 | `06_sbc.R` | Simulation-Based Calibration (Talts et al. 2018), 1000 sims (checkpointed): truth from the **exact** model prior, fit, rank the truth among thinned posterior draws; rank histograms with the uniform band | `Thesis_final/immagini/sbc_rank_histograms.png` |
-| `09_mutation_dist.R` / `09b_dlp_mut_refresh.R` | per-equation posterior-predictive distributions of the mutation counts (DGP replicate and the two Clone DLP scenarios), with `m_X` / `alpha_k` / `beta_k` labels | `Thesis_final/immagini/dgp_posterior_mutations.png`, `mut_dist_c{4,6}_dlp.png` |
+| `09b_dlp_mut_refresh.R` | per-equation posterior-predictive distributions of the mutation counts (DGP replicate and the two Clone DLP scenarios), with `m_X` / `alpha_k` / `beta_k` labels | `Thesis_final/immagini/dgp_posterior_mutations.png`, `mut_dist_c{4,6}_dlp.png` |
 | `08_nosub_compare.R` | ablation: `base_rw` (with children-subtraction) vs `base_rw_nosub` (without), on DGP replicates and the ProCESS scenarios | `results/nosub_compare.rds` |
 | `08b_nosub_dgp_test.R` | focused ideal-DGP ablation of the children-subtraction (full vs nosub), recovery of times and growth | `results/nosub_dgp_test.rds` |
-
-Exploratory / legacy (not used in the final thesis): `02_prior_sensitivity.R`,
-`03_realsim_hyperparam_sweeps.R` + `03b_realsim_sweep_plots.R` (older real-sim
-sweeps, superseded by `05`/`05b`), `07_ppc_mutations.R` (PPC scatter, figure dropped
-from the thesis).
 
 The long runs (`01`, `06`) are **checkpointed**: re-launching resumes from the last
 checkpoint (deterministic seeds, so the continuation is identical). Outside SBC,
