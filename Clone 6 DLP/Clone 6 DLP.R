@@ -140,6 +140,35 @@ clone_abundance <- cells_plot %>%
 print(clone_abundance)
 
 color_map <- stats::setNames(clones$color, clones$mutant)
+# Colorblind-friendly palette for the mutation forest (one per clone, A..F).
+forest_color_map <- c(
+  A = "#56B4E9", B = "#0072B2", C = "#009E73",
+  D = "#D55E00", E = "#CC79A7", F = "#E69F00"
+)
+
+make_forest_species_color_map <- function(forest, clone_color_map) {
+  forest$get_nodes() %>%
+    mutate(species = paste0(.data$mutant, .data$epistate)) %>%
+    distinct(.data$species, .data$mutant) %>%
+    mutate(color = clone_color_map[.data$mutant]) %>%
+    { stats::setNames(.$color, .$species) }
+}
+
+make_colored_forest_edges <- function(forest, forest_plot) {
+  layout <- forest_plot$data %>%
+    select(.data$name, .data$x, .data$y) %>%
+    mutate(name = as.character(.data$name))
+
+  forest$get_nodes() %>%
+    transmute(
+      from = ifelse(is.na(.data$ancestor), "WT", as.character(.data$ancestor)),
+      to = as.character(.data$cell_id),
+      species = paste0(.data$mutant, .data$epistate)
+    ) %>%
+    left_join(layout %>% rename(x_from = x, y_from = y), by = c("from" = "name")) %>%
+    left_join(layout %>% rename(x_to = x, y_to = y), by = c("to" = "name")) %>%
+    filter(!is.na(.data$x_from), !is.na(.data$y_from), !is.na(.data$x_to), !is.na(.data$y_to))
+}
 
 p <- ggplot(cells_plot, aes(x = position_x, y = position_y, fill = mutant)) +
   geom_tile() +
@@ -170,8 +199,14 @@ ggsave(
 # ------------------------------------------------------------
 # 4. Sampling
 # ------------------------------------------------------------
-n_w <- 200
-n_h <- 200
+# A focal biopsy: a fixed square sub-region of the tumour centred on the cell
+# centroid. search_sample cannot place a small box on this tree -- the six clones
+# are spatially segregated, so no small window matches their global proportions --
+# so the box is defined geometrically instead.
+tumor_side <- min(diff(range(cells_plot$position_x)), diff(range(cells_plot$position_y)))
+half_side  <- as.integer(round(0.275 * tumor_side))   # full side = 0.55 * tumour extent
+n_w <- 2L * half_side
+n_h <- n_w
 
 ncells_by_clone <- cells_plot %>%
   count(mutant, name = "n") %>%
@@ -184,7 +219,12 @@ sample_targets <- stats::setNames(
   ncells_by_clone$mutant
 )
 
-bbox1 <- sim$search_sample(sample_targets, n_w, n_h)
+cx <- as.integer(round(mean(cells_plot$position_x)))
+cy <- as.integer(round(mean(cells_plot$position_y)))
+bbox1 <- list(
+  lower_corner = c(cx - half_side, cy - half_side),
+  upper_corner = c(cx + half_side, cy + half_side)
+)
 
 p_cells <- ggplot(cells_plot, aes(x = position_x, y = position_y, fill = mutant)) +
   geom_tile() +
@@ -345,8 +385,33 @@ phylo_forest <- m_engine$place_mutations(
   num_of_preneoplatic_indels = 200
 )
 
-p <- plot_forest(forest) %>%
+forest_species_color_map <- make_forest_species_color_map(forest, forest_color_map)
+p_base <- plot_forest(forest, color_map = forest_species_color_map)
+colored_forest_edges <- make_colored_forest_edges(forest, p_base)
+
+p <- (
+  p_base +
+    geom_segment(
+      data = colored_forest_edges,
+      aes(
+        x = .data$x_from,
+        y = .data$y_from,
+        xend = .data$x_to,
+        yend = .data$y_to,
+        color = .data$species
+      ),
+      inherit.aes = FALSE,
+      linewidth = 0.16,
+      alpha = 0.45
+    )
+) %>%
   annotate_forest(phylo_forest, MRCAs = FALSE) +
+  ggraph::geom_node_point(
+    aes(color = .data$species),
+    size = 0.65,
+    alpha = 0.9,
+    na.rm = TRUE
+  ) +
   theme(legend.position = "none")
 
 show_plot(p)
@@ -816,6 +881,9 @@ stan_data <- list(
   omega_prior_mean = 1.25,
   omega_prior_sd = 0.5
 )
+
+dir.create("results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(stan_data, "results/Clone_6_DLP_stan_data.rds")
 
 stan_file <- file.path(
   "/Users/francescofavagrossa/Documents/Projects/Thesis/stan_models/base_rw.stan"

@@ -1,6 +1,0 @@
-# Keep only Stan source files in git.
-# Compiled cmdstan executables (no extension), generated C++ (*.hpp) and
-# other build artefacts are large/regenerable and must not be committed.
-*
-!.gitignore
-!*.stan
