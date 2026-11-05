@@ -1,0 +1,424 @@
+\chapter{Model}
+
+\tikzset{
+  vlat/.style={circle, draw, line width=.6pt, fill=white, minimum size=1.1cm, inner sep=1pt},
+  vobs/.style={vlat, fill=gray!22},
+  vknown/.style={vlat, fill=gray!42},
+  vconst/.style={circle, fill=black, inner sep=1.7pt},
+  ed/.style={-{Latex[length=1.8mm]}, line width=.6pt},
+  edl/.style={-{Latex[length=1.6mm]}, line width=.5pt, gray!55},
+  rec/.style={-{Latex[length=1.4mm]}, line width=.6pt, densely dashed, gray!60},
+  plateN/.style={draw=blue!45, line width=.7pt, rounded corners=6pt, fill=blue!6,  inner sep=13pt},
+  plateJ/.style={draw=blue!45, line width=.7pt, rounded corners=6pt, fill=blue!14, inner sep=11pt},
+  plab/.style={font=\small\itshape, text=blue!55, anchor=south east},
+}
+
+\section{Basic Model: Timing Reconstruction with Known Growth Rates}
+The first model assumes that the growth rates $w_1, \ldots, w_K$ are fixed and 
+known, and makes inference only on clone birth event timings and copy-number 
+alteration event timings. This simple framework serves as a stepping stone to 
+develop a more general model described in the next section, providing an 
+opportunity to verify whether the inference procedure works correctly under
+circumstances when the dynamics of the expansions do not induce any uncertainty.
+
+\begin{definition}[Pseudotime]
+\label{def:pseudotime}
+Time is measured on the normalised scale $t\in[0,1]$, the \emph{pseudotime}, with
+$t=0$ the origin of the tumour and $t=1$ the moment of sequencing. All event times
+in this chapter are expressed in pseudotime.
+\end{definition}
+
+Unknown parameters include clone birth event timings and copy-number alteration
+event timings. For each node $i$ of the phylogenetic tree $\mathcal{T}$, where 
+$i \in \{1, \ldots, K\}$, let $t_i \in (0, 1)$ be the time of birth of clone $i$, 
+with time normalised such that $t_0 = 0$ marks the origin of the tumour and 
+$T_f = 1$ marks the moment of sequencing. Further, for each copy-number alteration 
+event $j$ corresponding to node $i$, let $t_{CN,ij}$ be its timing. The 
+phylogenetic tree specifies ordering constraints
+%
+\begin{equation}
+    0 < t_{\mathrm{pa}(i)} < t_i < 1, \quad i = 2, \ldots, K,
+\end{equation}
+%
+where $\mathrm{pa}(i)$ stands for the parent of node $i$ in $\mathcal{T}$, 
+and each copy-number alteration occurs in the branch of the node to which it is 
+linked,
+%
+\begin{equation}
+    t_{\mathrm{pa}(i)} < t_{CN,ij} < t_i.
+\end{equation}
+%
+To satisfy the constraints and at the same time allow a representation that is 
+amenable to sampling via gradients, all event times are parametrised using 
+auxiliary uniformly distributed variables $u \sim \mathrm{Uniform}(0, 1)$. Clone 
+birth times are represented as $t_1 = u_1$ for the root node ($i = 1$, which has 
+no parent), and
+%
+\begin{equation}
+    t_i = t_{\mathrm{pa}(i)} + u_i \cdot \bigl(1 - t_{\mathrm{pa}(i)}\bigr)
+\end{equation}
+%
+for non-root nodes. Copy-number alteration event times are parametrised similarly: 
+$t_{CN,1j} = u_{1j} \cdot t_1$ for copy-number alteration events on the root 
+branch, and
+%
+\begin{equation}
+    t_{CN,ij} = t_{\mathrm{pa}(i)} + u_{ij} \cdot 
+    \bigl(t_i - t_{\mathrm{pa}(i)}\bigr)
+\end{equation}
+%
+for other branches. Since all auxiliary variables are uniformly distributed on 
+$(0, 1)$, these mappings imply a uniform prior over the event times:
+%
+\begin{equation}
+    t_i \sim \mathrm{Uniform}\bigl(t_{\mathrm{pa}(i)},\, T_f\bigr), \qquad
+    t_{CN,ij} \sim \mathrm{Uniform}\bigl(t_{\mathrm{pa}(i)},\, t_i\bigr).
+\end{equation}
+
+There are two independent components of the likelihood, one related to mutation 
+counts and another related to clone abundances.
+
+First, we define the likelihood based on mutations. Mutations accumulate independently
+along each branch as a stochastic process, with an expected number that depends on the
+mutation rate $\mu$, the growth rate $w_i$, the length of the genomic region
+considered, and the duration of the branch. The relevant distinction is not whether a
+branch carries a copy-number alteration, but which \emph{segments} of the genome do: a
+branch generally contains both segments that remain diploid and, possibly, segments
+altered by a copy-number event, and the two contribute to the likelihood in different
+ways.
+
+For the segments that remain diploid along the branch of clone $i$, whose total length
+we denote by $l_{\mathrm{tot},i}$, the mutation count $m_i$ follows a Poisson
+distribution,
+%
+\begin{equation}
+    m_i \sim \mathrm{Poisson}(r_i), \qquad
+    r_i = \mu \cdot w_i \cdot l_{\mathrm{tot},i} \cdot (t_i - t_{\mathrm{pa}(i)}).
+\end{equation}
+%
+See Appendix~\ref{app:KNWNO W} for the explanation of why this likelihood emerges
+naturally from the solution of the system of equations relating mutation counts to
+unknown event times, and for the corresponding deterministic formulation.
+
+On a genomic segment altered by a copy-number event $j$ at time $t_{CN,ij}$, the
+mutations falling in that segment carry information about the timing of the alteration.
+They are split into pre-alteration mutations $\alpha_{ij}$ and post-alteration
+mutations $\beta_{ij}$, with their respective Poisson likelihoods,
+%
+\begin{align}
+    \alpha_{ij} &\sim \mathrm{Poisson}(r^\alpha_{ij}), \qquad
+    r^\alpha_{ij} = \mu \cdot w_i \cdot l_{CN\mathrm{tot},ij} \cdot c^\alpha_{ij}
+    \cdot (t_{CN,ij} - t_{\mathrm{pa}(i)}), \\[4pt]
+    \beta_{ij} &\sim \mathrm{Poisson}(r^\beta_{ij}), \qquad
+    r^\beta_{ij} = \mu \cdot w_i \cdot l_{CN\mathrm{tot},ij} \cdot c^\beta_{ij}
+    \cdot (t_i - t_{CN,ij}),
+\end{align}
+%
+where the scaling factors $c^\alpha_{ij}$ and $c^\beta_{ij}$ correspond to the
+number of allelic copies on which new mutations may accumulate before and after
+the alteration respectively. These scalings differ for different types of
+copy-number alteration:
+%
+\begin{equation}
+    c^\alpha_{ij} = \begin{cases} 
+    2 & \text{if } CN_{ij} = 2\!:\!2, \\ 
+    1 & \text{if } CN_{ij} = 2\!:\!0, \\ 
+    2 & \text{if } CN_{ij} = 2\!:\!1,
+    \end{cases}
+    \qquad
+    c^\beta_{ij} = \begin{cases} 
+    4 & \text{if } CN_{ij} = 2\!:\!2, \\ 
+    2 & \text{if } CN_{ij} = 2\!:\!0, \\ 
+    3 & \text{if } CN_{ij} = 2\!:\!1.
+    \end{cases}
+\end{equation}
+%
+Finally, we define the likelihood of the observed clone abundance $N_i$.
+Since the descendant clones occupy part of this mass, the cells attributable to clone $i$ itself are obtained by subtracting the contributions of its child clones, yielding the terminal mass $M_i$; normalising the terminal masses across clones gives the expected proportion $p_i$, so that the observed cell count $N_i$ follows a Negative
+Binomial distribution,
+%
+\begin{equation}
+\begin{split}
+    M_i &= \exp\!\bigl[w_i \cdot (T_f - t_i)\bigr]
+    - \!\!\sum_{j:\,\mathrm{pa}(j)=i}\!\! \exp\!\bigl[w_i \cdot (T_f - t_j)\bigr],
+    \qquad p_i = \frac{M_i}{\sum_{k} M_k}, \\[4pt]
+    N_i &\sim \mathrm{NegBin}\!\bigl(N_{\mathrm{tot}} \cdot p_i,\, \phi\bigr),
+    \qquad N_{\mathrm{tot}} = \sum_{k} N_k,
+\end{split}
+\end{equation}
+%
+where the dispersion parameter $\phi$ controls how much the observed counts may
+deviate from their expected proportions. The Negative Binomial generalises the
+Poisson by adding exactly this dispersion, and a single $\phi$ lets us collect the
+different sources of extra variability in one place: the randomness of which cells end
+up in the sample, the stochastic fluctuations of clone proliferation, and the noise
+introduced by the sequencing process itself, such as the misassignment of cells to
+clones caused by allelic dropout or false positives. We assume the same value of
+$\phi$ for all clones, so that the number of parameters does not increase with the
+number of clones.
+The full posterior probability density of the event times $\boldsymbol{t}$ and 
+copy-number alteration times $\boldsymbol{t}_{CN}$ can be written in terms of the 
+prior and the two likelihood components as
+%
+\begin{equation}
+\begin{split}
+    p(\boldsymbol{t}, \boldsymbol{t}_{CN} \mid \boldsymbol{m}, \boldsymbol{\alpha}, 
+    \boldsymbol{\beta}, \boldsymbol{N}, \mathcal{T})
+    \propto&
+    \left[\prod_i p(m_i \mid t_i, t_{\mathrm{pa}(i)}) 
+    \prod_{i,j} p(\alpha_{ij}, \beta_{ij} \mid t_{CN,ij}, t_i, t_{\mathrm{pa}(i)})\right]
+    \cdot
+    \left[\prod_i p(N_i \mid t_i)\right] \\
+    \space &\cdot
+    \left[\prod_i p(t_i) \prod_{i,j} p(t_{CN,ij})\right],
+\end{split}
+\end{equation}%
+where the last term refers to the uniform priors over the event times. Since it is 
+not possible to sample from this posterior in closed form, we approximate it using 
+the No-U-Turn Sampler as implemented in Stan.
+
+Putting the components together, the basic model has a simple two-layer structure: the latent event times $\boldsymbol{t}$ and $\boldsymbol{t}_{CN}$, with the uniform priors above, generate conditionally independently the mutation counts $m_i$, $\alpha_{ij}$, $\beta_{ij}$ through the Poisson likelihoods and the clone abundances $N_i$ through the Negative-Binomial likelihood, while the growth rates $w_i$ are held fixed.
+
+\clearpage
+\subsection{Probabilistic graphical model}
+\begin{figure}[H]\centering
+\begin{tikzpicture}
+  \node[vconst, label=above:{$t_0{=}0$}] (t0)  at (0.2,5)  {};
+  \node[vconst, label=above:{$T_f{=}1$}] (Tf)  at (1.7,5)  {};
+  \node[vconst, label=above:{$\mu$}]      (mu)  at (9.5,5)  {};
+  \node[vconst, label=above:{$\phi$}]     (phi) at (11,5)   {};
+  \node[vlat]   (troot) at (0.9,3.5)  {$t_{\mathrm{root}}$};
+  \node[vlat]   (ti)  at (3.0,2.4)   {$t_i$};
+  \node[vknown] (wi)  at (5.2,2.4)   {$w_i$};
+  \node[vobs]   (mi)  at (7.6,0.9)   {$m_i$};
+  \node[vobs]   (Ni)  at (10.4,1.4)  {$N_i$};
+  \node[vlat]   (tcn) at (3.1,-0.5)  {$t_{\mathrm{CN},ij}$};
+  \node[vobs]   (al)  at (2.1,-2.1)  {$\alpha_{ij}$};
+  \node[vobs]   (be)  at (4.3,-2.1)  {$\beta_{ij}$};
+  % edges
+  \draw[ed] (t0)--(troot); \draw[ed] (Tf)--(troot); \draw[ed] (troot)--(ti);
+  \draw[ed] (ti)--(tcn);
+  \draw[ed] (ti) to[bend left=6] (mi);
+  \draw[ed] (ti) to[bend left=14] (Ni);
+  \draw[ed] (ti) to[bend right=5] (be);
+  \draw[ed] (wi) to[bend right=14] (al);
+  \draw[ed] (wi)--(be);
+  \draw[ed] (wi)--(mi);
+  \draw[ed] (wi)--(Ni);
+  \draw[ed] (tcn)--(al); \draw[ed] (tcn)--(be);
+  \draw[edl] (mu)--(mi); \draw[edl] (phi)--(Ni);
+  \draw[rec] (ti) to[out=120,in=60,looseness=4.5] node[above=0pt,font=\scriptsize,gray]{parent} (ti);
+  \begin{pgfonlayer}{background}
+    \node[plateN, fit=(ti)(wi)(mi)(Ni)(tcn)(al)(be)] (pN) {};
+    \node[plateJ, fit=(tcn)(al)(be)] (pJ) {};
+  \end{pgfonlayer}
+  \node[plab] at ([shift={(-.18,.14)}]pN.south east) {$N$: clones $i$};
+  \node[plab, anchor=south west] at ([xshift=4pt, yshift=3pt]pJ.south east) {$J$: CNA $j$};
+\end{tikzpicture}
+\captionsetup{font=footnotesize}
+\caption{Probabilistic graphical model of the base model}
+\label{fig:pgm-basic}
+\end{figure}
+\subsection{Hierarchical formulation}
+\begin{minipage}[t]{0.49\linewidth}
+\[
+\begin{aligned}
+u_i,\,u_{ij} &\sim \operatorname{Uniform}(0,1)\\
+t_1 &= u_1\\
+t_i &= t_{\mathrm{pa}(i)}+u_i\bigl(1-t_{\mathrm{pa}(i)}\bigr)\\
+t_{\mathrm{CN},ij} &= t_{\mathrm{pa}(i)}+u_{ij}\bigl(t_i-t_{\mathrm{pa}(i)}\bigr)\\
+m_i &\sim \operatorname{Poisson}(r_i)\\
+r_i &= \mu\,w_i\,l_{\mathrm{tot},i}\bigl(t_i-t_{\mathrm{pa}(i)}\bigr)
+\end{aligned}
+\]
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\linewidth}
+\[
+\begin{aligned}
+\alpha_{ij} &\sim \operatorname{Poisson}(r^\alpha_{ij})\\
+r^\alpha_{ij} &= \mu\,w_i\,l_{\mathrm{CN},ij}\,c^\alpha_{ij}\bigl(t_{\mathrm{CN},ij}-t_{\mathrm{pa}(i)}\bigr)\\
+\beta_{ij} &\sim \operatorname{Poisson}(r^\beta_{ij})\\
+r^\beta_{ij} &= \mu\,w_i\,l_{\mathrm{CN},ij}\,c^\beta_{ij}\bigl(t_i-t_{\mathrm{CN},ij}\bigr)\\
+M_i &= e^{\,w_i(T_f-t_i)}-\!\!\sum_{j:\mathrm{pa}(j)=i}\!\! e^{\,w_i(T_f-t_j)}\\
+p_i &= M_i\big/\textstyle\sum_{k} M_k\\
+N_i &\sim \operatorname{NegBin}(N_{\mathrm{tot}}\,p_i,\phi)
+\end{aligned}
+\]
+\end{minipage}
+
+\clearpage
+
+\section{Extended Model: Joint Reconstruction of Times and Growth Rates}
+\label{sec: model rw}
+Model two generalises the previous one by removing the assumption that the growth 
+rates associated with clones are given as input data. In this model, the growth 
+rates $w_1, \ldots, w_K$ are considered latent variables, together with the times 
+at which the events occurred. Again, the likelihood and the parametrisation of 
+event times are identical to what was explained in the previous section, the only 
+difference being the hierarchical structure assumed over the growth rates.
+
+The main idea underlying this prior comes from the observation that the growth 
+rates for related clones are similar, since these clones have been evolving together 
+over a large amount of time. This idea is incorporated into the hierarchy via a 
+log-scale random walk over the branches of the tree $\mathcal{T}$. Specifically, 
+we define a global mean $\bar{w} > 0$, and then compute the growth rate of each 
+node $i$ as
+%
+\begin{equation}
+    \log w_i = \log w_{\mathrm{pa}(i)} + \sigma_{\log w} \cdot z_i, 
+    \qquad z_i \overset{\mathrm{iid}}{\sim} \mathcal{N}(0, 1),
+\end{equation}
+%
+where $\sigma_{\log w} \geq 0$ controls the variance of the variation in growth 
+rates between parent and child clones. If $\sigma_{\log w}$ is close to zero, 
+related clones are forced to have very similar growth rates; if it is large, their 
+rates may differ considerably. In the implementation the per-branch increments $\delta_i = \log w_i - \log w_{\mathrm{pa}(i)}$ are sampled directly with $\delta_i \sim \mathcal{N}(0, \sigma_{\log w})$ (a centred parametrisation), which proved sufficient for stable sampling with the No-U-Turn Sampler.
+
+The prior distributions for this hierarchical model are defined as follows. First, 
+the global mean growth rate is assigned a log-normal prior,
+%
+\begin{equation}
+    \log \bar{w} \sim \mathcal{N}\!\left(\log \bar{w}_{\mathrm{prior}},\, 
+    \sigma_{\bar{w}}\right),
+\end{equation}
+%
+with $\bar{w}_{\mathrm{prior}}$ and $\sigma_{\bar{w}}$ being hyperparameters
+passed as input. The centre $\bar{w}_{\mathrm{prior}}$ is chosen to match the growth
+rates reported for real tumours rather than set arbitrarily. Writing the specific
+growth rate as $\mathrm{SGR} = \ln 2 / T_d$, with $T_d$ the volume doubling time
+\parencite{mehrara2007specific}, the doubling times observed for solid tumours, from a
+few months up to about a year, correspond to rates of the order of $0.05$ to $0.2$ per
+month. We therefore centre $\bar{w}_{\mathrm{prior}}$ near the lower end of this
+interval, a doubling time of roughly one year, which keeps the prior on a biologically
+plausible scale while the spread $\sigma_{\bar{w}}$ keeps it weakly informative. The
+step size of the walk is given an exponential prior,
+%
+\begin{equation}
+    \sigma_{\log w} \sim \mathrm{Exponential}(\lambda),
+\end{equation}
+%
+where $\lambda$ controls the strength of shrinkage towards the global mean rate. 
+A large value of $\lambda$ implies that $\sigma_{\log w}$ will be small, making 
+related growth rates more similar. Finally, the standardised increments are drawn 
+from the standard normal distribution,
+%
+\begin{equation}
+    z_i \overset{\mathrm{iid}}{\sim} \mathcal{N}(0, 1), \quad i = 2, \ldots, K.
+\end{equation}
+
+The full posterior distribution is given by
+%
+\begin{equation}
+\begin{aligned}
+    p\!\left(\boldsymbol{t}, \boldsymbol{t}_{CN}, \bar{w}, \sigma_{\log w},
+    \boldsymbol{z} \mid \boldsymbol{m}, \boldsymbol{\alpha}, \boldsymbol{\beta},
+    \boldsymbol{N}, \mathcal{T}\right) \propto\;
+    &\left[\prod_i p(m_i \mid t_i, t_{\mathrm{pa}(i)}, w_i)
+    \prod_{i,j} p(\alpha_{ij}, \beta_{ij} \mid t_{CN,ij}, t_i,
+    t_{\mathrm{pa}(i)}, w_i)\right] \\
+    \times\; &\left[\prod_i p(N_i \mid t_i, w_i)\right] \\
+    \times\; &\left[\prod_i p(t_i) \prod_{i,j} p(t_{CN,ij})\right] \\
+    \times\; &\; p(\bar{w})\, p(\sigma_{\log w}) \prod_{i=2}^{K} p(z_i),
+\end{aligned}
+\end{equation}
+%
+where $\sigma_{\log w} \geq 0$ controls the variance of the variation in growth 
+rates between parent and child clones. If $\sigma_{\log w}$ is close to zero, 
+related clones are forced to have very similar growth rates; if it is large, their 
+rates may differ considerably.
+See Appendix~\ref{app:RW}  for a derivation of the marginal distribution 
+of $w_i$ implied by this hierarchical structure.\\
+The extended model adds a further layer on top of this structure. At the top, the global parameters $\bar{w}$ and $\sigma_{\log w}$ are drawn from their priors; the standardised increments $z_i$ then generate the clone growth rates $w_i$ through the log-scale random walk; finally, the growth rates together with the event times generate the observed mutation counts and the clone abundances. The event times and the growth rates are therefore the latent nodes shared between the two likelihood branches, and the joint density factorises exactly as in the posterior above.
+
+\clearpage
+\subsection{Probabilistic graphical models}
+\begin{figure}[H]\centering
+\begin{tikzpicture}
+  \node[vconst, label=above:{$t_0{=}0$}]         (t0)  at (0.2,5.4) {};
+  \node[vconst, label=above:{$T_f{=}1$}]         (Tf)  at (1.7,5.4) {};
+  \node[vconst, label=above:{$\bar w_0$}]        (wb0) at (5.2,5.6) {};
+  \node[vconst, label=above:{$\sigma_{\bar w}$}] (swb) at (6.2,5.6) {};
+  \node[vconst, label=above:{$\lambda$}]         (lam) at (7.6,5.6) {};
+  \node[vconst, label=above:{$\mu$}]             (mu)  at (9.6,5.4) {};
+  \node[vconst, label=above:{$\phi$}]            (phi) at (11,5.4)  {};
+  \node[vlat] (troot) at (0.9,3.7)  {$t_{\mathrm{root}}$};
+  \node[vlat] (wbar)  at (5.8,4.3)  {$\bar w$};
+  \node[vlat] (sw)    at (7.6,4.3)  {$\sigma_{\log w}$};
+  \node[vlat] (ti)  at (3.0,2.4)   {$t_i$};
+  \node[vlat] (wi)  at (5.2,2.4)   {$w_i$};
+  \node[vlat] (zi)  at (6.8,2.9)   {$z_i$};
+  \node[vobs] (mi)  at (7.6,0.9)   {$m_i$};
+  \node[vobs] (Ni)  at (10.4,1.4)  {$N_i$};
+  \node[vlat] (tcn) at (3.1,-0.5)  {$t_{\mathrm{CN},ij}$};
+  \node[vobs] (al)  at (2.1,-2.1)  {$\alpha_{ij}$};
+  \node[vobs] (be)  at (4.3,-2.1)  {$\beta_{ij}$};
+  % times
+  \draw[ed] (t0)--(troot); \draw[ed] (Tf)--(troot); \draw[ed] (troot)--(ti);
+  \draw[ed] (ti)--(tcn);
+  \draw[ed] (ti) to[bend left=6] (mi);
+  \draw[ed] (ti) to[bend left=14] (Ni);
+  \draw[ed] (ti) to[bend right=5] (be);
+  % growth hierarchy
+  \draw[ed] (wb0)--(wbar); \draw[ed] (swb)--(wbar); \draw[ed] (lam)--(sw);
+  \draw[ed] (wbar)--(wi); \draw[ed] (sw)--(wi); \draw[ed] (zi)--(wi);
+  % growth -> likelihoods
+  \draw[ed] (wi) to[bend right=14] (al);
+  \draw[ed] (wi)--(be);
+  \draw[ed] (wi)--(mi);
+  \draw[ed] (wi)--(Ni);
+  \draw[ed] (tcn)--(al); \draw[ed] (tcn)--(be);
+  \draw[edl] (mu)--(mi); \draw[edl] (phi)--(Ni);
+  % recursions
+  \draw[rec] (ti) to[out=120,in=60,looseness=4.5] node[above=0pt,font=\scriptsize,gray]{parent} (ti);
+  \draw[rec] (wi) to[out=120,in=60,looseness=4.5] node[above=0pt,font=\scriptsize,gray]{RW} (wi);
+  \begin{pgfonlayer}{background}
+    \node[plateN, fit=(ti)(wi)(zi)(mi)(Ni)(tcn)(al)(be)] (pN) {};
+    \node[plateJ, fit=(tcn)(al)(be)] (pJ) {};
+  \end{pgfonlayer}
+  \node[plab] at ([shift={(-.18,.14)}]pN.south east) {$N$: clones $i$};
+  \node[plab, anchor=south west] at ([xshift=4pt, yshift=3pt]pJ.south east) {$J$: CNA $j$};
+\end{tikzpicture}
+\captionsetup{font=footnotesize}
+\caption{Probabilistic graphical model of the complete model}
+\label{fig:pgm-rw}
+\end{figure}
+
+\subsection{Hierarchical formulation}
+
+{\small
+\setlength{\abovedisplayskip}{2pt}
+\setlength{\belowdisplayskip}{2pt}
+\setlength{\jot}{2pt}
+
+\noindent
+\begin{minipage}[t]{0.49\linewidth}
+\[
+\begin{aligned}
+u_i,\,u_{ij} &\sim \operatorname{Uniform}(0,1)\\
+\bar w &\sim \operatorname{LogNormal}(\log\bar w_0,\sigma_{\bar w})\\
+\sigma_{\log w} &\sim \operatorname{Exponential}(\lambda)\\
+z_i &\sim \mathcal{N}(0,1)\\
+t_1 &= u_1\\
+t_i &= t_{\mathrm{pa}(i)}+u_i(1-t_{\mathrm{pa}(i)})\\
+t_{\mathrm{CN},ij} &= t_{\mathrm{pa}(i)}+u_{ij}(t_i-t_{\mathrm{pa}(i)})\\
+\log w_1 &= \log\bar w\\
+\log w_i &= \log w_{\mathrm{pa}(i)}+\sigma_{\log w}z_i
+\end{aligned}
+\]
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\linewidth}
+\[
+\begin{aligned}
+m_i &\sim \operatorname{Poisson}(r_i)\\
+r_i &= \mu w_i l_{\mathrm{tot},i}(t_i-t_{\mathrm{pa}(i)})\\
+\alpha_{ij} &\sim \operatorname{Poisson}(r^\alpha_{ij})\\
+r^\alpha_{ij} &= \mu w_i l_{\mathrm{CN},ij} c^\alpha_{ij}(t_{\mathrm{CN},ij}-t_{\mathrm{pa}(i)})\\
+\beta_{ij} &\sim \operatorname{Poisson}(r^\beta_{ij})\\
+r^\beta_{ij} &= \mu w_i l_{\mathrm{CN},ij} c^\beta_{ij}(t_i-t_{\mathrm{CN},ij})\\
+M_i &= e^{w_i(T_f-t_i)}-\!\!\sum_{j:\mathrm{pa}(j)=i}\!\! e^{w_i(T_f-t_j)}\\
+p_i &= M_i\big/\textstyle\sum_k M_k\\
+N_i &\sim \operatorname{NegBin}(N_{\mathrm{tot}}p_i,\phi)
+\end{aligned}
+\]
+\end{minipage}
+}

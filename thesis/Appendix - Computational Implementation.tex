@@ -1,0 +1,52 @@
+\chapter{Appendix - Computational Implementation}
+
+All models in this thesis are implemented in the Stan probabilistic programming
+language and fitted with its dynamic Hamiltonian Monte Carlo sampler (the No-U-Turn
+sampler) through the \texttt{cmdstanr} interface. The source code, together with the
+simulation and validation scripts, lives in the project repository
+(\texttt{stan\_models/} and \texttt{robustness\_checks/}). Two design choices are
+shared by every model. Event times are never sampled directly: they are built from
+auxiliary variables $u\sim\mathrm{Uniform}(0,1)$ by stick-breaking, so that the tree
+ordering constraints $t_{\mathrm{pa}(i)}<t_i$ hold by construction and the sampler explores
+an unconstrained space. Clone abundances enter through a negative-binomial
+likelihood on the simplex of terminal clone masses, which makes the abundance signal
+scale-free and robust to the absolute number of sequenced cells. Numerical guards
+(\texttt{fmin} caps inside the exponentials) keep the rates finite even for extreme
+parameter draws.
+
+\section{Stan Implementation of the Basic Model}
+\label{app: STAN 1}
+
+The basic model introduced in Chapter~2 treats the clone growth rates as known and
+infers only the event pseudotimes. Computationally it is the complete model of
+Appendix~\ref{app: STAN 2} with two simplifications: the growth rates
+$w_1,\dots,w_K$ are supplied as data rather than given a prior, so the entire
+random-walk block (\texttt{w\_bar}, \texttt{sigma\_log\_w} and \texttt{delta\_log\_w})
+and the global clock factor $\omega$ are removed, leaving the stick-breaking
+auxiliaries $u$ as the only parameters. The mutation, copy-number and abundance
+likelihoods are otherwise unchanged, with each clone's known $w_i$ substituted
+wherever the complete model uses its inferred value. Because growth is fixed, the
+basic model is fully identified; it serves, as discussed in Chapter~2, as the
+stepping stone whose deterministic counterpart is derived in
+Appendix~\ref{app:KNWNO W}. The listing is given below.
+
+\lstinputlisting[style=stan]{code/basic_model.stan}
+
+\section{Stan Implementation of the Complete Model}
+\label{app: STAN 2}
+
+The complete model is the random-walk model of Section~\ref{sec: model rw}: it infers
+the event pseudotimes and the clone-specific growth rates jointly. Growth is given a
+hierarchical random walk on the log scale, with a root rate \texttt{w\_bar} and
+per-branch increments \texttt{delta\_log\_w} of standard deviation
+\texttt{sigma\_log\_w}, and the molecular clock is coupled to growth through a single
+global factor $\omega$. Somatic mutations follow a Poisson law whose rate is
+proportional to this clock, the genomic length and the branch duration, with
+copy-number branches split into the pre- and post-event counts $\alpha$ and $\beta$.
+The priors are $\bar w\sim\mathrm{LogNormal}$, $\sigma_{\log w}\sim\mathrm{Exponential}$
+and $\omega\sim\mathrm{LogNormal}(\log 1.25,\,0.5)$, the last deliberately tight to
+break the global-scale multimodality discussed in Chapter~2. Inference uses four
+chains with several thousand post-warm-up draws each, \texttt{adapt\_delta} raised to
+$0.95$ and a maximum tree depth of $13$. The complete listing is given below.
+
+\lstinputlisting[style=stan]{code/base_rw.stan}

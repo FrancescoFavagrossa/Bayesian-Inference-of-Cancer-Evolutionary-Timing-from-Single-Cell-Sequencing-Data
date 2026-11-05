@@ -1,0 +1,62 @@
+\chapter*{Introduction}
+\label{ch:introduction}
+Cancer is an evolutionary process. A tumour develops from a single founding cell and
+grows through repeated cycles of cell division, and at each division somatic
+mutations arise. Most of these mutations are neutral, leaving the cell's growth and
+fitness unchanged; a few give a selective advantage and seed new subclones that
+expand on their own. A tumour observed at the moment of sequencing is therefore a
+mixture of clones, each carrying its own history of mutations and each having grown
+at its own pace.
+
+Reconstructing that history, meaning which events happened, in what order, and how
+quickly each clone expanded, is one of the central problems of cancer data science.
+The timing of mutations and copy-number changes, and the speed at which clones grow,
+say something about how a tumour has progressed and, possibly, about how it will
+behave, so a reconstruction that is both accurate and aware of its own uncertainty
+is useful scientifically and clinically. The difficulty is that the process is
+observed only once: a single snapshot has to be used to infer something that
+unfolded over time. This makes careful statistical modelling, and a clear statement
+of what can and cannot be recovered from one observation, essential.
+
+The data for this task come in two main forms, which differ in cost, resolution and
+the kind of information they give. Bulk sequencing is still comparatively cheap, but
+it returns the average signal from a mixed population of cells and so loses
+information about the sizes of the clonal subpopulations, which limits how well the
+diversity of the tumour can be resolved. Single-cell sequencing instead exposes
+tumour heterogeneity in much greater detail and gives information about the subclonal
+populations that bulk experiments cannot see. This resolution comes at a price:
+single-cell reads are typically noisy and harder to interpret, so the data need
+careful processing.
+
+A first step in analysing such data is to reconstruct the phylogenetic tree relating
+the sampled cells. Several methods do this, for instance \textit{Pharming}
+\parencite{weber2026pharming} and \textit{BiTSC}$^2$ \parencite{chen2022bitsc2},
+but a tree inferred from data is an estimate, not a ground truth:
+it fixes the ordering constraints among events without, by itself, telling us when
+those events occurred or how fast the clones grew. This is the gap the present work
+addresses. Taking the inferred phylogeny as its starting point, the thesis develops
+a Bayesian hierarchical model that estimates the timing of mutation and
+copy-number events together with the clone-specific growth rates. The model ties
+several signals to the same latent timeline: the number of mutations accumulated
+along each branch, the way mutations in a copy-number region split into those arising
+before and after the alteration, and the relative abundance of the clones. It places
+a hierarchical prior on growth, so that closely related clones share statistical
+strength while distinct ones remain free to differ.
+
+A comparable amount of attention is given to showing that these inferences can be
+trusted. The model is validated in stages of increasing difficulty. It is first
+fitted to data drawn from its own generative process, where parameter recovery and
+simulation-based calibration check that the computation is faithful and the reported
+uncertainties are calibrated; it is then tested on synthetic data from ProCESS, a
+spatial tumour-evolution simulator, which shows how the inference behaves in a more realistic setting. This staged validation is itself part of
+the contribution of the thesis.
+
+The dissertation is organized as follows. Chapter~1 reviews the biological background
+and the sequencing technologies, and frames the inference problem in statistical
+terms. Chapter~2 develops the models: a first, simpler model that treats the growth
+rates as known and infers only the event times, and a second that estimates the
+growth rates as well. Chapter~3 presents the simulation study: the ideal
+data-generating process, the calibration analysis, and the experiments on ProCESS
+data. Chapter~4 discusses the findings, their limitations, and directions for future
+work. Two appendices collect the mathematical derivations underlying the model and
+the details of its computational implementation.
