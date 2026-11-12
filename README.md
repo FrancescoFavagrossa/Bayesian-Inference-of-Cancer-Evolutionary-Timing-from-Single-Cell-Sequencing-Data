@@ -1,6 +1,6 @@
 # Bayesian Inference of Cancer Evolutionary Timing from Single-Cell Sequencing Data
 
-Code for the MSc thesis (University of Milano-Bicocca). The project develops and
+Code for the thesis (University of Milano-Bicocca). The project develops and
 validates a Bayesian hierarchical model that, from a **single snapshot** of
 single-cell sequencing data, reconstructs **when** the genomic events of a tumour
 happened (clone-birth and copy-number times) and **how fast** each clone grew.
